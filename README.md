@@ -1,6 +1,6 @@
-# Docker Hello World
+# Docker Deploy
 
-This repository contains a small HTML page served by Docker.
+This repository contains a small HTML page served by Docker and nginx.
 
 ## Local Docker Run
 
