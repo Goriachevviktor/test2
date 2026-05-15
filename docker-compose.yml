@@ -1,0 +1,62 @@
+services:
+  app:
+    build:
+      context: .
+    image: test-git-hello:latest
+    restart: unless-stopped
+    expose:
+      - "80"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  certs:
+    image: alpine/openssl:3.5.2
+    entrypoint: ["/bin/sh", "-c"]
+    restart: "no"
+    environment:
+      SERVER_IP: ${SERVER_IP:-138.16.178.245}
+      PUBLIC_HOST: ${PUBLIC_HOST:-138-16-178-245.sslip.io}
+    volumes:
+      - tls-certs:/certs
+    command:
+      - |
+          if [ -s /certs/selfsigned.crt ] && [ -s /certs/selfsigned.key ]; then
+            echo "Self-signed certificate already exists"
+            exit 0
+          fi
+
+          openssl req -x509 -nodes -days 825 -newkey rsa:2048 \
+            -keyout /certs/selfsigned.key \
+            -out /certs/selfsigned.crt \
+            -subj "/CN=$${PUBLIC_HOST}" \
+            -addext "subjectAltName=DNS:$${PUBLIC_HOST},IP:$${SERVER_IP}"
+
+  proxy:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    depends_on:
+      - app
+      - certs
+    command:
+      - /bin/sh
+      - -c
+      - |
+          until [ -s /etc/nginx/certs/selfsigned.crt ] && [ -s /etc/nginx/certs/selfsigned.key ]; do
+            echo "Waiting for TLS certificate..."
+            sleep 1
+          done
+
+          nginx -g 'daemon off;'
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - tls-certs:/etc/nginx/certs:ro
+
+volumes:
+  tls-certs:

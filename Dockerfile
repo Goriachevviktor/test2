@@ -1,3 +1,3 @@
-FROM alpine:3.20
+FROM nginx:1.27-alpine
 
-CMD ["sh", "-c", "echo 'Hello, World from Docker!'; tail -f /dev/null"]
+COPY index.html /usr/share/nginx/html/index.html
